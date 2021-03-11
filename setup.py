@@ -42,4 +42,4 @@ async def on_message(msg):
   if msg.content.startswith('!rank'):
     await msg.channel.send(get_word(msg.content))
 
-client.run('ODE2MTcyNTQwODI0OTExODgy.YD3F6Q.FTNB--0Zej4hBPR57BQBki18Jqo')
+client.run("ODE2MTcyNTQwODI0OTExODgy.YD3F6Q.x6Ze5EI9m9GFPs4LUZixP81obbQ")
