@@ -1,5 +1,4 @@
 discord
-time
 json
 os
 certifi==2018.10.15
