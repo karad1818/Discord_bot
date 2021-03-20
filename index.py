@@ -1,5 +1,6 @@
 import discord
 import random
+import html
 import os
 import cv2 as cv
 import numpy as np
@@ -30,8 +31,8 @@ def comman(msg):
 def get_def(msg):
   j = comman(msg)
   ans = []
-  if 'message' in j:
-    return j['message']
+  if 'msg' in j:
+    return j['msg']
   else:
     j = j[0]
     ans.append("Word : " + j['word'])
@@ -50,8 +51,8 @@ def get_def(msg):
 def get_syn(msg):
   j = comman(msg)
   ans = []
-  if 'message' in j:
-    return j['message']
+  if 'msg' in j:
+    return j['msg']
   else:
     j = j[0]
     m = j['meanings'][0]['definitions']
@@ -74,8 +75,8 @@ def get_syn(msg):
 def get_pro(msg):
   j = comman(msg)
   ans = []
-  if 'message' in j:
-    return j['message']
+  if 'msg' in j:
+    return j['msg']
   else:
     j = j[0]
     m = j['phonetics'][0]
@@ -271,9 +272,20 @@ d = requests.get("https://www.mit.edu/~ecprice/wordlist.10000")
 word_str = d.content.decode('utf-8')
 word_list = word_str.split("\n")
 
+#global variable for quiz
+with urllib.request.urlopen("https://opentdb.com/api.php?amount=50&type=multiple") as url:
+    data = json.loads(url.read().decode())
+playerScore = {}
+ArrChoice = []
+act_user = "NONE"
+client = discord.Client()
+rnd = 0
+cnt = 0
+timedel = 0
+
 @client.event
 async def on_ready():
-  await client.change_presence(activity=discord.Game(name=" !image_help , !help "))
+  await client.change_presence(activity=discord.Game(name=" !image_help , !help , !quiz"))
   print("Hello : {0.user}".format(client))
 
 @client.event
@@ -283,6 +295,11 @@ async def on_message(msg):
   global ok
   global f
   global collage,stegno
+  global timedel
+  global act_user
+  global ArrChoice
+  global rnd
+  global cnt
   if msg.author == client.user:
     return 
   if msg.content.startswith('!image_help'):
@@ -448,5 +465,61 @@ async def on_message(msg):
     started = 0
     await msg.channel.send("Game Ended")
 
-  
+  username = str(msg.author).split("#")[0]
+  # If a player is answering and someone writes !quiz, but if leftSec > 5 than discard previous partipant
+  if str(act_user) != "NONE" and str(username) != act_user and str(msg.content) == "!quiz":
+    timedel += 1
+    if timedel > 4:
+      act_user = "NONE"
+      timedel = 0
+      await msg.channel.send("!quiz to play")
+      ArrChoice.clear()
+      return
+    await msg.channel.send(username + " Please Wait! or Ask for Quiz " +  str(5 - timedel) + " times incase " + act_user + " is Offline")
+    return
+  if msg.content == "!quiz" and act_user == username:
+    await msg.channel.send("Answer before asking Next Question")
+    return
+  if msg.content == "!quiz":
+    act_user = username
+    if not username in playerScore:
+      playerScore[username] = 0
+    rnd = random.randint(0, 49)
+    Question = html.unescape(data['results'][rnd]['question'])
+    await msg.channel.send("Question: " + Question)
+    ArrChoice.append(html.unescape(data['results'][rnd]['correct_answer']))
+    for i in range (0, 3):
+      ArrChoice.append(html.unescape(data['results'][rnd]['incorrect_answers'][i]))
+    random.shuffle(ArrChoice)
+    option = "A"
+    for word in ArrChoice:
+      await msg.channel.send(chr(ord(option) + cnt) + ") " + word)
+      cnt += 1
+    cnt = 0
+    return
+  if (len(msg.content) > 1):
+    return
+  curr_ans = str(html.unescape(data['results'][rnd]['correct_answer']))
+  usr_ans = ArrChoice[ord(msg.content.upper()) - 65]
+  if username == act_user:
+    if curr_ans == usr_ans:
+      await msg.channel.send("Correct!")
+      #Score Calculation
+      playerScore[act_user] += 1
+      await msg.channel.send("::Leaderboard::")
+      act_user = "NONE"
+      ArrChoice.clear()
+
+      for ok in playerScore:
+        await msg.channel.send(str(ok) + " --> " + str(playerScore[ok]))
+      return
+    await msg.channel.send("Incorrect!")
+    await msg.channel.send("Correct Answer is " + curr_ans)
+    ArrChoice.clear()
+    await msg.channel.send("::Leaderboard::")
+    for ok in playerScore:
+      await msg.channel.send(str(ok) + " --> " + str(playerScore[ok]))
+    act_user = "NONE"
+    return
+
 client.run(os.getenv('TOKEN'))
