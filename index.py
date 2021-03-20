@@ -1,23 +1,17 @@
 import discord
+import random
 import os
+import cv2 as cv
+import numpy as np
+import matplotlib as mlt
 import requests
 import hashlib
-import random
 import json
-import time
-import xml.etree.ElementTree as ET
-import re
+import urllib.request
+from PIL import Image as im
+from PIL import ImageOps
 
-client = discord.Client() 
-started = 0
-global_word = "ab"
-user_hint = 0
-user = dict()
-word_list = []
-d = requests.get("https://www.mit.edu/~ecprice/wordlist.10000")
-word_str = d.content.decode('utf-8')
-word_list = word_str.split("\n")
-
+# funtion for dictionary
 def comman(msg):
   x = ""
   ok = 0
@@ -62,8 +56,11 @@ def get_syn(msg):
     j = j[0]
     m = j['meanings'][0]['definitions']
     for i in m:
-      for j in i['synonyms']:
-        ans.append(j)
+      if 'synonyms' in i:
+        for j in i['synonyms']:
+          ans.append(j)
+      else:
+        return "No Synonyms found.."
   ans_str = ""
   cnt = 1;
   for i in ans:
@@ -142,17 +139,229 @@ def get_help():
   ans = ans + "7. !skip : to skip 1 round\n"
   return ans
 
+#fucntions for image
+def url_to_image(url):
+  hdr = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
+         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+         'Referer': 'https://cssspritegenerator.com',
+         'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+         'Accept-Encoding': 'none',
+         'Accept-Language': 'en-US,en;q=0.8',
+         'Connection': 'keep-alive'}
+  req = urllib.request.Request(url,headers=hdr)
+  resp = urllib.request.urlopen(req)
+  image = np.asarray(bytearray(resp.read()), dtype="uint8")
+  image = cv.imdecode(image, cv.IMREAD_UNCHANGED)
+  return image
+
+def save_img(img,name):
+  img = im.fromarray(img)
+  img.save(name)
+
+def get_and_save_image(msg,name):
+  if len(msg.attachments) == 0:
+    return "Invalid File / You need to upload an Image"
+  x = msg.attachments[0].url
+  y = url_to_image(x)
+  save_img(y,name)
+  return ""
+
+def black_and_white(img):
+  img = cv.cvtColor(img,cv.COLOR_RGB2GRAY)
+  return img
+
+def edge_detection(img):
+  canny = cv.Canny(cv.cvtColor(img,cv.COLOR_RGB2GRAY),0,255)
+  return canny
+
+def smoothning(img,x):
+  img = cv.GaussianBlur(img,(x,x),0)
+  return img
+
+def sharpening(img):
+  new_filter = np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
+  img = cv.filter2D(img,-1,new_filter)
+  return img
+
+def sketch(img , col):
+  sketch_gray, sketch_color = cv.pencilSketch(img, sigma_s=60, sigma_r=0.07, shade_factor=0.05)
+  return (sketch_color if col else sketch_gray)
+
+def stylized(img):
+  img = cv.stylization(img, sigma_s=60, sigma_r=0.07)
+  return img
+
+def frame(img,x):
+  img = cv.copyMakeBorder(img,x,x,x,x,cv.BORDER_CONSTANT,value=[255,0,0])
+  return img
+
+def merge_and_create(a,b,c,d):
+  a = cv.resize(a,(250,250))
+  b = cv.resize(b,(250,250))
+  c = cv.resize(c,(250,250))
+  d = cv.resize(d,(250,250))
+  first = np.vstack([a,b])
+  second = np.vstack([c,d])
+  final = np.hstack([first,second])
+  cv.imwrite('x.png',final)
+  return cv.imread('x.png')
+
+def encryption(a,b):
+  a = cv.resize(a,(600,600))
+  b = cv.resize(b,(600,600))
+  for i in range(b.shape[0]): 
+    for j in range(b.shape[1]): 
+      for l in range(3): 
+        v1 = format(a[i][j][l], '08b') 
+        v2 = format(b[i][j][l], '08b') 
+        v3 = v1[:4] + v2[:4]  
+        a[i][j][l]= int(v3, 2)
+  cv.imwrite('x.png',a)
+  return cv.imread('x.png')
+
+def decryption(img):
+  width = img.shape[0] 
+  height = img.shape[1] 
+  img1 = np.zeros((width, height, 3), np.uint8) 
+  img2 = np.zeros((width, height, 3), np.uint8) 
+      
+  for i in range(width): 
+    for j in range(height): 
+      for l in range(3): 
+        v1 = format(img[i][j][l], '08b') 
+        v2 = v1[:4] + chr(random.randint(0, 1)+48) * 4
+        v3 = v1[4:] + chr(random.randint(0, 1)+48) * 4
+        img1[i][j][l]= int(v2, 2) 
+        img2[i][j][l]= int(v3, 2)
+  cv.imwrite('e.png',img1)
+  cv.imwrite('d.png',img2)
+
+  return cv.imread('e.png') , cv.imread('d.png')
+              
+client = discord.Client() 
+#global variable for image
+ok = 0
+f = 0
+collage = 0
+stegno = 0
+
+#global variable for dictionary
+started = 0
+global_word = "ab"
+user_hint = 0
+user = dict()
+word_list = []
+d = requests.get("https://www.mit.edu/~ecprice/wordlist.10000")
+word_str = d.content.decode('utf-8')
+word_list = word_str.split("\n")
+
 @client.event
 async def on_ready():
-  await client.change_presence(activity=discord.Game(name=" !help "))
+  await client.change_presence(activity=discord.Game(name=" !image_help , !help "))
   print("Hello : {0.user}".format(client))
 
 @client.event
 async def on_message(msg):
   global started
   global user_hint
+  global ok
+  global f
+  global collage,stegno
   if msg.author == client.user:
     return 
+  if msg.content.startswith('!image_help'):
+    ans_str = "1. !image : for 1 image processing\n2. !multiimage : for creating collage\n3. !stegno : for encryption and decryption"
+    await msg.channel.send(ans_str)
+  elif msg.content.startswith('!multiimage') or collage > 0:
+    if collage == 0:
+      await msg.channel.send("Add Four Images To Create Collage")
+      collage = 4
+    elif collage == 4:
+      p = get_and_save_image(msg,'a.png')
+      collage -= 1
+    elif collage == 3:
+      p = get_and_save_image(msg,'b.png')
+      collage -= 1
+    elif collage == 2:
+      p = get_and_save_image(msg,'c.png')
+      collage -= 1
+    elif collage == 1:
+      p = get_and_save_image(msg,'d.png')
+      collage -= 1
+    if collage == 0:
+      a = cv.imread('a.png')
+      b = cv.imread('b.png')
+      c = cv.imread('c.png')
+      d = cv.imread('d.png')
+      img = merge_and_create(a,b,c,d)
+      save_img(img,'x.png')
+      await msg.channel.send(file=discord.File('x.png'))
+  elif (msg.content.startswith("!stegno") or stegno):
+    if stegno == 0 :
+      await msg.channel.send("What do you wanna do ?? [e : encryption, d : decryption]")
+      stegno = 1
+    elif (stegno == 5 or stegno == 4):
+      #encryption
+      if stegno == 5:
+        p1 = get_and_save_image(msg,'e.png')
+        stegno -= 1
+      else:
+        p2 = get_and_save_image(msg,'d.png')
+        img = encryption(cv.imread('e.png'),cv.imread('d.png'))
+        save_img(img,'x.png')
+        await msg.channel.send(file=discord.File('x.png'))
+        stegno = 0
+    elif stegno == 3:
+      #decryption
+      p = get_and_save_image(msg,'d.png')
+      a , b = decryption(cv.imread('d.png'))
+      save_img(a,'e.png')
+      save_img(b,'d.png')
+      await msg.channel.send(file=discord.File('e.png'))
+      await msg.channel.send(file=discord.File('d.png'))
+      stegno = 0
+    else:
+      if msg.content == "e":
+        stegno = 5
+        await msg.channel.send("Upload 2 Images that you wanna encrypt....(It'll take 2/3 minutes so be patient)")
+      else:
+        stegno = 3
+        await msg.channel.send("Upload Image that you wanna decrypt..(It'll take 2/3 minutes so be patient)")
+  elif msg.content.startswith('!image'):
+    ok = 1
+    await msg.channel.send("Upload an image here.....")
+  elif ok == 1:
+    p = get_and_save_image(msg,'x.png')
+    feature = "Which filter/feature you wanna apply(Write 1/2/3..) ??\n 1. Black and White\n 2. Background remove\n 3. Filter\n 4. Blur\n 5. Edge detection\n 6. Sharpening\n 7. Gray Sketch\n 8. Colour Sketch\n 9. Stylization\n 10. Frame"
+    if p != "":
+      await msg.channel.send(p)
+    else:
+      await msg.channel.send(feature)
+      ok = 0
+      f = 1
+  elif f == 1:
+    img = cv.imread('x.png')
+    ok = 0
+    f = 0
+    if msg.content == "1":
+      img = black_and_white(img)
+    elif msg.content == "5":
+      img = edge_detection(img)
+    elif msg.content == "4":
+      img = smoothning(img,5)
+    elif msg.content == "6":
+      img = sharpening(img)
+    elif msg.content == "7":
+      img = sketch(img,0)
+    elif msg.content == "8":
+      img = sketch(img,1)
+    elif msg.content == "9":
+      img = stylized(img)
+    elif msg.content == "10":
+      img = frame(img,50)
+    save_img(img,'x.png')
+    await msg.channel.send(file=discord.File('x.png'))
+  
   if msg.content.startswith('!def'):
     await msg.channel.send(get_def(msg.content))
   elif msg.content.startswith('!syn'):
@@ -220,5 +429,6 @@ async def on_message(msg):
   elif msg.content.startswith('!skip'):
     started = 0
     await msg.channel.send("Game Ended")
+
   
 client.run(os.getenv('TOKEN'))
