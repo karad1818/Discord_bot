@@ -183,6 +183,20 @@ def sharpening(img):
   img = cv.filter2D(img,-1,new_filter)
   return img
 
+def add_filter(img,prob):
+  output = np.zeros(img.shape,np.uint8)
+  thres = 1 - prob 
+  for i in range(img.shape[0]):
+      for j in range(img.shape[1]):
+          rdn = random.random()
+          if rdn < prob:
+              output[i][j] = 0
+          elif rdn > thres:
+              output[i][j] = 255
+          else:
+              output[i][j] = img[i][j]
+  return output
+
 def sketch(img , col):
   sketch_gray, sketch_color = cv.pencilSketch(img, sigma_s=60, sigma_r=0.07, shade_factor=0.05)
   return (sketch_color if col else sketch_gray)
@@ -238,6 +252,8 @@ def decryption(img):
 
   return cv.imread('e.png') , cv.imread('d.png')
               
+
+
 client = discord.Client() 
 #global variable for image
 ok = 0
@@ -332,7 +348,7 @@ async def on_message(msg):
     await msg.channel.send("Upload an image here.....")
   elif ok == 1:
     p = get_and_save_image(msg,'x.png')
-    feature = "Which filter/feature you wanna apply(Write 1/2/3..) ??\n 1. Black and White\n 2. Background remove\n 3. Filter\n 4. Blur\n 5. Edge detection\n 6. Sharpening\n 7. Gray Sketch\n 8. Colour Sketch\n 9. Stylization\n 10. Frame"
+    feature = "Which filter/feature you wanna apply(Write 1/2/3..) ??\n 1. Black and White\n 2. Filter\n 3. Blur\n 4. Edge detection\n 5. Sharpening\n 6. Gray Sketch\n 7. Colour Sketch\n 8. Stylization\n 9. Frame"
     if p != "":
       await msg.channel.send(p)
     else:
@@ -345,19 +361,21 @@ async def on_message(msg):
     f = 0
     if msg.content == "1":
       img = black_and_white(img)
-    elif msg.content == "5":
-      img = edge_detection(img)
-    elif msg.content == "4":
+    elif msg.content == "2":
+      img = add_filter(img,0.05)
+    elif msg.content == "3":
       img = smoothning(img,5)
-    elif msg.content == "6":
+    elif msg.content == "4":
+      img = edge_detection(img)
+    elif msg.content == "5":
       img = sharpening(img)
-    elif msg.content == "7":
+    elif msg.content == "6":
       img = sketch(img,0)
-    elif msg.content == "8":
+    elif msg.content == "7":
       img = sketch(img,1)
-    elif msg.content == "9":
+    elif msg.content == "8":
       img = stylized(img)
-    elif msg.content == "10":
+    elif msg.content == "9":
       img = frame(img,50)
     save_img(img,'x.png')
     await msg.channel.send(file=discord.File('x.png'))
