@@ -469,6 +469,7 @@ async def on_message(msg):
         await msg.channel.send(score)
 
   elif msg.content.startswith('!quiz'):
+    ArrChoice.clear()
     rnd = random.randint(0, 49)
     Question = html.unescape(data['results'][rnd]['question'])
     await msg.channel.send("Question: " + Question)
