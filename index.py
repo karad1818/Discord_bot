@@ -11,6 +11,7 @@ import json
 import urllib.request
 from PIL import Image as im
 from PIL import ImageOps
+from keep_alive import keep_alive
 
 # funtion for dictionary
 def comman(msg):
@@ -137,9 +138,8 @@ def get_help():
   ans = ans + "4. !start : to start the game\n"
   ans = ans + "5. !hint : you've 3 hint for every round\n"
   ans = ans + "6. !ans : it'll give the answer to the question\n"
-  ans = ans + "7. !skip : to skip 1 round\n"
-  ans = ans + "8. !quiz : to play General Knowledge Quiz\n"
-  ans = ans + "9. !leader : to display leaderboard"
+  ans = ans + "7. !quiz : to play General Knowledge Quiz\n"
+  ans = ans + "8. !leader : to display leaderboard"
   return ans
 
 #fucntions for image
@@ -448,7 +448,7 @@ async def on_message(msg):
           p_hint += i
         await msg.channel.send(p_hint)  
 
-  elif (msg.content.startswith('!skip') == 0) and (started == 1 or msg.content.startswith('!start')):
+  elif (started == 1 or msg.content.startswith('!start')):
     if started == 0:
       started = 1
       user_hint = 0
@@ -467,9 +467,6 @@ async def on_message(msg):
         user_hint = 0
         await msg.channel.send("Correct !!!")
         await msg.channel.send(score)
-  elif msg.content.startswith('!skip'):
-    started = 0
-    await msg.channel.send("Game Ended")
 
   elif msg.content.startswith('!quiz'):
     rnd = random.randint(0, 49)
@@ -478,20 +475,15 @@ async def on_message(msg):
     ArrChoice.append(html.unescape(data['results'][rnd]['correct_answer']))
     for i in range (0, 3):
       ArrChoice.append(html.unescape(data['results'][rnd]['incorrect_answers'][i]))
-    #print(list(ArrChoice))
     random.shuffle(ArrChoice)
-    #print(list(ArrChoice))
     option = "A"
     for word in ArrChoice:
-      #print(word)
       await msg.channel.send(chr(ord(option) + cnt) + ") " + word)
       cnt += 1
     cnt = 0
     return
   answer_given = str(msg.content)
   answer_given = answer_given.upper()
-  #print(answer_given)
-  #print(len(answer_given))
   if len(answer_given) != 1:
     return
   if answer_given != 'A' and answer_given != 'B' and answer_given != 'C' and answer_given != 'D':
@@ -501,10 +493,7 @@ async def on_message(msg):
   if not username in user:
     user[username] = 0
   usr_ans = ArrChoice[ord(msg.content.upper()) - 65]
-  #print(curr_ans)
-  #print(usr_ans)
   if curr_ans == usr_ans:
-      #print("Hey")
     await msg.channel.send("Correct!")
       #Score Calculation
     user[username] += 1
@@ -514,4 +503,5 @@ async def on_message(msg):
   await msg.channel.send("Correct Answer is " + curr_ans)
   ArrChoice.clear()
   
-client.run('Token')
+keep_alive()
+client.run(os.getenv('TOKEN'))
