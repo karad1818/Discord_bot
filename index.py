@@ -138,6 +138,8 @@ def get_help():
   ans = ans + "5. !hint : you've 3 hint for every round\n"
   ans = ans + "6. !ans : it'll give the answer to the question\n"
   ans = ans + "7. !skip : to skip 1 round\n"
+  ans = ans + "8. !quiz : to play General Knowledge Quiz\n"
+  ans = ans + "9. !leader : to display leaderboard"
   return ans
 
 #fucntions for image
@@ -275,7 +277,7 @@ word_list = word_str.split("\n")
 #global variable for quiz
 with urllib.request.urlopen("https://opentdb.com/api.php?amount=50&type=multiple") as url:
     data = json.loads(url.read().decode())
-playerScore = {}
+user = {}
 ArrChoice = []
 act_user = "NONE"
 client = discord.Client()
@@ -302,7 +304,11 @@ async def on_message(msg):
   global cnt
   if msg.author == client.user:
     return 
-  if msg.content.startswith('!image_help'):
+  if msg.content.startswith('!leader'):
+    for name in user:
+      await msg.channel.send(str(name) + " --> " + str(user[name]))
+    return
+  elif msg.content.startswith('!image_help'):
     ans_str = "1. !image : for 1 image processing\n2. !multiimage : for creating collage\n3. !stegno : for encryption and decryption"
     await msg.channel.send(ans_str)
   elif msg.content.startswith('!multiimage') or collage > 0:
@@ -465,61 +471,47 @@ async def on_message(msg):
     started = 0
     await msg.channel.send("Game Ended")
 
-  username = str(msg.author).split("#")[0]
-  # If a player is answering and someone writes !quiz, but if leftSec > 5 than discard previous partipant
-  if str(act_user) != "NONE" and str(username) != act_user and str(msg.content) == "!quiz":
-    timedel += 1
-    if timedel > 4:
-      act_user = "NONE"
-      timedel = 0
-      await msg.channel.send("!quiz to play")
-      ArrChoice.clear()
-      return
-    await msg.channel.send(username + " Please Wait! or Ask for Quiz " +  str(5 - timedel) + " times incase " + act_user + " is Offline")
-    return
-  if msg.content == "!quiz" and act_user == username:
-    await msg.channel.send("Answer before asking Next Question")
-    return
-  if msg.content == "!quiz":
-    act_user = username
-    if not username in playerScore:
-      playerScore[username] = 0
+  elif msg.content.startswith('!quiz'):
     rnd = random.randint(0, 49)
     Question = html.unescape(data['results'][rnd]['question'])
     await msg.channel.send("Question: " + Question)
     ArrChoice.append(html.unescape(data['results'][rnd]['correct_answer']))
     for i in range (0, 3):
       ArrChoice.append(html.unescape(data['results'][rnd]['incorrect_answers'][i]))
+    #print(list(ArrChoice))
     random.shuffle(ArrChoice)
+    #print(list(ArrChoice))
     option = "A"
     for word in ArrChoice:
+      #print(word)
       await msg.channel.send(chr(ord(option) + cnt) + ") " + word)
       cnt += 1
     cnt = 0
     return
-  if (len(msg.content) > 1):
+  answer_given = str(msg.content)
+  answer_given = answer_given.upper()
+  #print(answer_given)
+  #print(len(answer_given))
+  if len(answer_given) != 1:
+    return
+  if answer_given != 'A' and answer_given != 'B' and answer_given != 'C' and answer_given != 'D':
     return
   curr_ans = str(html.unescape(data['results'][rnd]['correct_answer']))
+  username = str(msg.author).split("#")[0]
+  if not username in user:
+    user[username] = 0
   usr_ans = ArrChoice[ord(msg.content.upper()) - 65]
-  if username == act_user:
-    if curr_ans == usr_ans:
-      await msg.channel.send("Correct!")
+  #print(curr_ans)
+  #print(usr_ans)
+  if curr_ans == usr_ans:
+      #print("Hey")
+    await msg.channel.send("Correct!")
       #Score Calculation
-      playerScore[act_user] += 1
-      await msg.channel.send("::Leaderboard::")
-      act_user = "NONE"
-      ArrChoice.clear()
-
-      for ok in playerScore:
-        await msg.channel.send(str(ok) + " --> " + str(playerScore[ok]))
-      return
-    await msg.channel.send("Incorrect!")
-    await msg.channel.send("Correct Answer is " + curr_ans)
+    user[username] += 1
     ArrChoice.clear()
-    await msg.channel.send("::Leaderboard::")
-    for ok in playerScore:
-      await msg.channel.send(str(ok) + " --> " + str(playerScore[ok]))
-    act_user = "NONE"
     return
-
-client.run(os.getenv('TOKEN'))
+  await msg.channel.send("Incorrect!")
+  await msg.channel.send("Correct Answer is " + curr_ans)
+  ArrChoice.clear()
+  
+client.run('ODIwMDYyMTcxMDkwMjU1ODgz.YEvsaQ.GBEV4x9jPbnNd5aQistVpu60mJY')
