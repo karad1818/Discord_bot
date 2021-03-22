@@ -162,8 +162,12 @@ def save_img(img,name):
   img.save(name)
 
 def get_and_save_image(msg,name):
+  global collage ,stegno
   if len(msg.attachments) == 0:
-    return "Invalid File / You need to upload an Image"
+    collage = 0
+    stegno = 0
+    ok = 0
+    return "Not a Valid File"
   x = msg.attachments[0].url
   y = url_to_image(x)
   save_img(y,name)
@@ -260,7 +264,6 @@ def decryption(img):
 client = discord.Client() 
 #global variable for image
 ok = 0
-f = 0
 collage = 0
 stegno = 0
 
@@ -284,6 +287,7 @@ client = discord.Client()
 rnd = 0
 cnt = 0
 timedel = 0
+quiz_checker = 0
 
 @client.event
 async def on_ready():
@@ -295,23 +299,23 @@ async def on_message(msg):
   global started
   global user_hint
   global ok
-  global f
   global collage,stegno
   global timedel
   global act_user
   global ArrChoice
   global rnd
   global cnt
+  global quiz_checker
   if msg.author == client.user:
     return 
+
   if msg.content.startswith('!leader'):
     for name in user:
       await msg.channel.send(str(name) + " --> " + str(user[name]))
-    return
-  elif msg.content.startswith('!image_help'):
+  if msg.content.startswith('!image_help'):
     ans_str = "1. !image : for 1 image processing\n2. !multiimage : for creating collage\n3. !stegno : for encryption and decryption"
     await msg.channel.send(ans_str)
-  elif msg.content.startswith('!multiimage') or collage > 0:
+  if msg.content.startswith('!multiimage') or collage > 0:
     if collage == 0:
       await msg.channel.send("Add Four Images To Create Collage")
       collage = 4
@@ -335,7 +339,7 @@ async def on_message(msg):
       img = merge_and_create(a,b,c,d)
       save_img(img,'x.png')
       await msg.channel.send(file=discord.File('x.png'))
-  elif (msg.content.startswith("!stegno") or stegno):
+  if (msg.content.startswith("!stegno") or stegno > 0):
     if stegno == 0 :
       await msg.channel.send("What do you wanna do ?? [e : encryption, d : decryption]")
       stegno = 1
@@ -366,55 +370,55 @@ async def on_message(msg):
       else:
         stegno = 3
         await msg.channel.send("Upload Image that you wanna decrypt..(It'll take 2/3 minutes so be patient)")
-  elif msg.content.startswith('!image'):
-    ok = 1
-    await msg.channel.send("Upload an image here.....")
-  elif ok == 1:
-    p = get_and_save_image(msg,'x.png')
-    feature = "Which filter/feature you wanna apply(Write 1/2/3..) ??\n 1. Black and White\n 2. Filter\n 3. Blur\n 4. Edge detection\n 5. Sharpening\n 6. Gray Sketch\n 7. Colour Sketch\n 8. Stylization\n 9. Frame"
-    if p != "":
-      await msg.channel.send(p)
-    else:
-      await msg.channel.send(feature)
+  if (msg.content.startswith('!image') or ok > 0):
+    if ok == 0:
+      ok = 1
+      await msg.channel.send("Upload an image here.....")
+    elif ok == 1:
+      p = get_and_save_image(msg,'x.png')
+      if p != "":
+        ok = 0
+      else:
+        feature = "Which filter/feature you wanna apply(Write 1/2/3..) ??\n 1. Black and White\n 2. Filter\n 3. Blur\n 4. Edge detection\n 5. Sharpening\n 6. Gray Sketch\n 7. Colour Sketch\n 8. Stylization\n 9. Frame"
+        await msg.channel.send(feature)
+        ok = 2
+    elif ok == 2:
+      img = cv.imread('x.png')
+      if msg.content == "1":
+        img = black_and_white(img)
+      elif msg.content == "2":
+        img = add_filter(img,0.05)
+      elif msg.content == "3":
+        img = smoothning(img,5)
+      elif msg.content == "4":
+        img = edge_detection(img)
+      elif msg.content == "5":
+        img = sharpening(img)
+      elif msg.content == "6":
+        img = sketch(img,0)
+      elif msg.content == "7":
+        img = sketch(img,1)
+      elif msg.content == "8":
+        img = stylized(img)
+      elif msg.content == "9":
+        img = frame(img,50)
+      save_img(img,'x.png')
+      await msg.channel.send(file=discord.File('x.png'))
       ok = 0
-      f = 1
-  elif f == 1:
-    img = cv.imread('x.png')
-    ok = 0
-    f = 0
-    if msg.content == "1":
-      img = black_and_white(img)
-    elif msg.content == "2":
-      img = add_filter(img,0.05)
-    elif msg.content == "3":
-      img = smoothning(img,5)
-    elif msg.content == "4":
-      img = edge_detection(img)
-    elif msg.content == "5":
-      img = sharpening(img)
-    elif msg.content == "6":
-      img = sketch(img,0)
-    elif msg.content == "7":
-      img = sketch(img,1)
-    elif msg.content == "8":
-      img = stylized(img)
-    elif msg.content == "9":
-      img = frame(img,50)
-    save_img(img,'x.png')
-    await msg.channel.send(file=discord.File('x.png'))
+  
   
   if msg.content.startswith('!def'):
     await msg.channel.send(get_def(msg.content))
-  elif msg.content.startswith('!syn'):
+  if msg.content.startswith('!syn'):
     await msg.channel.send(get_syn(msg.content))
-  elif msg.content.startswith('!pro'):
+  if msg.content.startswith('!pro'):
     await msg.channel.send(get_pro(msg.content))
-  elif msg.content.startswith('!help'):
+  if msg.content.startswith('!help'):
     await msg.channel.send(get_help())
-  elif msg.content.startswith('!ans'):
+  if msg.content.startswith('!ans'):
     started = 0
     await msg.channel.send(global_word)
-  elif msg.content.startswith('!hint'):
+  if msg.content.startswith('!hint'):
     if user_hint == 3:
       await msg.channel.send("Sorry , Your hints finished")
     else :
@@ -448,7 +452,7 @@ async def on_message(msg):
           p_hint += i
         await msg.channel.send(p_hint)  
 
-  elif (started == 1 or msg.content.startswith('!start')):
+  if (started == 1 or msg.content.startswith('!start')):
     if started == 0:
       started = 1
       user_hint = 0
@@ -468,41 +472,42 @@ async def on_message(msg):
         await msg.channel.send("Correct !!!")
         await msg.channel.send(score)
 
-  elif msg.content.startswith('!quiz'):
-    ArrChoice.clear()
-    rnd = random.randint(0, 49)
-    Question = html.unescape(data['results'][rnd]['question'])
-    await msg.channel.send("Question: " + Question)
-    ArrChoice.append(html.unescape(data['results'][rnd]['correct_answer']))
-    for i in range (0, 3):
-      ArrChoice.append(html.unescape(data['results'][rnd]['incorrect_answers'][i]))
-    random.shuffle(ArrChoice)
-    option = "A"
-    for word in ArrChoice:
-      await msg.channel.send(chr(ord(option) + cnt) + ") " + word)
-      cnt += 1
-    cnt = 0
-    return
-  answer_given = str(msg.content)
-  answer_given = answer_given.upper()
-  if len(answer_given) != 1:
-    return
-  if answer_given != 'A' and answer_given != 'B' and answer_given != 'C' and answer_given != 'D':
-    return
-  curr_ans = str(html.unescape(data['results'][rnd]['correct_answer']))
-  username = str(msg.author).split("#")[0]
-  if not username in user:
-    user[username] = 0
-  usr_ans = ArrChoice[ord(msg.content.upper()) - 65]
-  if curr_ans == usr_ans:
-    await msg.channel.send("Correct!")
-      #Score Calculation
-    user[username] += 1
-    ArrChoice.clear()
-    return
-  await msg.channel.send("Incorrect!")
-  await msg.channel.send("Correct Answer is " + curr_ans)
-  ArrChoice.clear()
-  
+  if (msg.content.startswith('!quiz') or quiz_checker == 1):
+    if quiz_checker == 0:
+      quiz_checker = 1
+      ArrChoice.clear()
+      rnd = random.randint(0, 49)
+      Question = html.unescape(data['results'][rnd]['question'])
+      await msg.channel.send("Question: " + Question)
+      ArrChoice.append(html.unescape(data['results'][rnd]['correct_answer']))
+      for i in range (0, 3):
+        ArrChoice.append(html.unescape(data['results'][rnd]['incorrect_answers'][i]))
+      random.shuffle(ArrChoice)
+      option = "A"
+      for word in ArrChoice:
+        await msg.channel.send(chr(ord(option) + cnt) + ") " + word)
+        cnt += 1
+      cnt = 0
+    else:
+      answer_given = str(msg.content)
+      answer_given = answer_given.upper()
+      if answer_given != 'A' and answer_given != 'B' and answer_given != 'C' and answer_given != 'D':
+        return
+      curr_ans = str(html.unescape(data['results'][rnd]['correct_answer']))
+      username = str(msg.author).split("#")[0]
+      if not username in user:
+        user[username] = 0
+      usr_ans = ArrChoice[ord(msg.content.upper()) - 65]
+      if curr_ans == usr_ans:
+        await msg.channel.send("Correct!")
+        user[username] += 1
+        ArrChoice.clear()
+        quiz_checker = 0
+        return
+      await msg.channel.send("Incorrect!")
+      await msg.channel.send("Correct Answer is " + curr_ans)
+      ArrChoice.clear()
+      quiz_checker = 0
+
 keep_alive()
 client.run(os.getenv('TOKEN'))
