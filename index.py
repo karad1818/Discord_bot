@@ -10,6 +10,7 @@ from PIL import Image as im
 import urllib.request
 from discord.ext import commands
 import os
+import youtube_dl
 from keep_alive import keep_alive
 
 # Global Stuff that do everything 1 Time
@@ -306,6 +307,17 @@ class image_processing:
 
 #image processing ended
 
+# make an interface cool
+class inter_face:
+  def code_bloack(self,msg : str):
+    return "```" + msg + "```"
+  
+  def bold(self,msg : str):
+    return "**" + msg + "**"
+
+  def single_block(self,msg : str):
+    return "> " + msg;
+
 # global functions
 def Score_calculator(user:str):
   global user_score
@@ -323,65 +335,81 @@ client = commands.Bot(command_prefix="!")
 # create some global object
 h = hangman()
 i = image_processing()
+face = inter_face()
 
-@client.command(name='def')
+@client.command(name='def' , description='XXXXXXX')
 async def get_definitions(ctx,*,args : str):
   msg = "{}".format(''.join(args))
   d = Dictionary(msg)
-  await ctx.send(d.get_def())
+  await ctx.send(face.code_bloack(d.get_def()))
 
 @client.command(name='syn')
 async def get_synonyms(ctx,*,args : str):
   msg = "{}".format(''.join(args))
   d = Dictionary(msg)
-  await ctx.send(d.get_syn())
+  await ctx.send(face.code_bloack(d.get_syn()))
 
 @client.command(name='pro')
 async def get_pronunciation(ctx,*,args : str):
   msg = "{}".format(''.join(args))
   d = Dictionary(msg)
-  await ctx.send(d.get_pro())
+  s = d.get_pro()
+  temp = ""
+  for i in s:
+    if i == "\n":
+      break
+    if i == " ":
+      temp = ""
+    else:
+      temp += i
+  await ctx.send(s)
+  await play(ctx,temp)
 
 @client.command(name='start')
 async def get_word_for_game(ctx):
   global started,remained_hint
   started = 1
   remained_hint = 3
-  await ctx.send(h.start_game())
+  await ctx.send(face.single_block("Game Started...."))
+  await ctx.send(face.code_bloack(h.start_game()))
 
 @client.command(name='hint')
 async def give_hint(ctx):
   global remained_hint,started
   if started == 0:
-    await ctx.send("No game started...")
+    await ctx.send(face.single_block("No game started..."))
   else:
-    await ctx.send(h.hint(remained_hint))
+    await ctx.send(face.single_block(face.bold(h.hint(remained_hint))))
     if remained_hint > 0:
       remained_hint -= 1
 
 @client.command(name='ans')
 async def give_ans(ctx):
   global started
-  started = 0
-  await ctx.send(h.answer())
+  if started > 0:
+    started = 0
+    await ctx.send(face.single_block("Game Ended...."))
+    await ctx.send(face.single_block(face.bold(h.answer())))
+  else:
+    await ctx.send(face.single_block("Game Ended...."))
 
 @client.command(name='image')
 async def image_enable(ctx):
   global ok
   ok = 1
-  await ctx.send("Upload Image.....")
+  await ctx.send(face.code_bloack("Upload Image....."))
 
 @client.command(name='collage')
 async def multi_image_enable(ctx):
   global collage
   collage = 4
-  await ctx.send("Upload 4 images here ....")
+  await ctx.send(face.code_bloack("Upload 4 images here ...."))
 
 @client.command(name='stegno')
 async def stegno_enable(ctx):
   global stegno
   stegno = 1
-  await ctx.send("What do you wanna do ?? [e : encryption, d : decryption]")
+  await ctx.send(face.code_bloack("What do you wanna do ?? [e : encryption, d : decryption]"))
 
 @client.command(name='quiz')
 async def quiz_enable(ctx):
@@ -390,17 +418,79 @@ async def quiz_enable(ctx):
   ArrChoice.clear()
   rnd = random.randint(0, 49)
   Question = html.unescape(data['results'][rnd]['question'])
-  await ctx.send("Question: " + Question)
+  await ctx.send(face.code_bloack("Question: " + Question))
   ArrChoice.append(html.unescape(data['results'][rnd]['correct_answer']))
   for i in range (0, 3):
     ArrChoice.append(html.unescape(data['results'][rnd]['incorrect_answers'][i]))
   random.shuffle(ArrChoice)
   option = "A"
   for word in ArrChoice:
-    await ctx.send(chr(ord(option) + cnt) + ") " + word)
+    await ctx.send(face.code_bloack(chr(ord(option) + cnt) + ") " + word))
     cnt += 1
   cnt = 0
 
+@client.command()
+async def play(ctx,url:str):
+  song_there = os.path.isfile("x.mp3")
+  try:
+      if song_there:
+          os.remove("x.mp3")
+  except PermissionError:
+      await ctx.send("Wait for the current playing music to end or use the 'stop' command")
+      return
+
+  voiceChannel = discord.utils.get(ctx.guild.voice_channels, name='General')
+  
+  await voiceChannel.connect()
+  voice = discord.utils.get(client.voice_clients, guild=ctx.guild)
+
+  ydl_opts = {
+      'format': 'bestaudio/best',
+      'postprocessors': [{
+          'key': 'FFmpegExtractAudio',
+          'preferredcodec': 'mp3',
+          'preferredquality': '192',
+      }],
+  }
+  with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+      ydl.download([url])
+  for file in os.listdir("./"):
+      if file.endswith(".mp3"):
+          os.rename(file, "x.mp3")
+  voice.play(discord.FFmpegPCMAudio("x.mp3"))
+  
+
+@client.command()
+async def leave(ctx):
+    voice = discord.utils.get(client.voice_clients, guild=ctx.guild)
+    if voice.is_connected():
+        await voice.disconnect()
+    else:
+        await ctx.send("The bot is not connected to a voice channel.")
+
+
+@client.command()
+async def pause(ctx):
+    voice = discord.utils.get(client.voice_clients, guild=ctx.guild)
+    if voice.is_playing():
+        voice.pause()
+    else:
+        await ctx.send("Currently no audio is playing.")
+
+
+@client.command()
+async def resume(ctx):
+    voice = discord.utils.get(client.voice_clients, guild=ctx.guild)
+    if voice.is_paused():
+        voice.resume()
+    else:
+        await ctx.send("The audio is not paused.")
+
+
+@client.command()
+async def stop(ctx):
+    voice = discord.utils.get(client.voice_clients, guild=ctx.guild)
+    voice.stop()
 
 @client.event
 async def on_message(msg):
@@ -411,7 +501,8 @@ async def on_message(msg):
 
   if started == 1:
     if h.check(msg.content) == "Correct !!!":
-      await msg.channel.send("Correct !!!")
+      await msg.channel.send(face.single_block("Correct !!!"))
+      await msg.channel.send(face.single_block("Game Ended....\n"))
       started = 0
       await msg.channel.send(Score_calculator(msg.author.name))
 
@@ -474,10 +565,10 @@ async def on_message(msg):
     if stegno == 1:
       if msg.content == "e":
         stegno = 5
-        await msg.channel.send("Upload 2 Images that you wanna encrypt....(It'll take 2/3 minutes so be patient)")
+        await msg.channel.send(face.code_bloack("Upload 2 Images that you wanna encrypt....(It'll take 2/3 minutes so be patient)"))
       else:
         stegno = 3
-        await msg.channel.send("Upload Image that you wanna decrypt..(It'll take 2/3 minutes so be patient)")
+        await msg.channel.send(face.code_bloack("Upload Image that you wanna decrypt..(It'll take 2/3 minutes so be patient)"))
     elif (stegno == 5 or stegno == 4):
       #encryption
       if stegno == 5:
@@ -514,8 +605,8 @@ async def on_message(msg):
         ArrChoice.clear()
         quiz_checker = 0
       else:
-        await msg.channel.send("Incorrect!")
-        await msg.channel.send("Correct Answer is " + curr_ans)
+        await msg.channel.send(face.single_block("Incorrect!"))
+        await msg.channel.send(face.bold("Correct Answer is " + curr_ans))
         ArrChoice.clear()
         quiz_checker = 0
     
